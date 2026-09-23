@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sonnensystem – Interaktives Modell</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  html{scroll-padding-top:env(safe-area-inset-top,0px)}
+  body{background:#04040e;color:#c8d8f0;font-family:'Courier New',Courier,monospace;
+       min-height:100vh;padding:10px 14px;user-select:none}
+  h1{text-align:center;font-size:22px;color:#6688cc;letter-spacing:4px;
+     text-transform:uppercase;margin-bottom:2px}
+  .subtitle{text-align:center;font-size:9px;color:#2a3a5a;letter-spacing:3px;margin-bottom:10px}
+  .canvas-wrap{width:100%;position:relative;padding-top:56.25%;
+               border-radius:12px;overflow:hidden;
+               border:1px solid #101828;margin-bottom:8px}
+  canvas{position:absolute;top:0;left:0;width:100%;height:100%;display:block}
+  .panel{background:linear-gradient(135deg,#0a0a1e,#08081a);border:1px solid #1a2240;
+         border-radius:10px;padding:10px 14px;margin-bottom:8px}
+  .sec{font-size:11px;font-weight:bold;color:#4466aa;letter-spacing:2px;
+       text-transform:uppercase;margin-bottom:8px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px}
+  @media(max-width:600px){.grid3{grid-template-columns:1fr}}
+  .slider-label{font-size:10px;color:#445566;margin-bottom:4px}
+  .slider-label span{color:#88aacc}
+  .slider-hint{font-size:9px;color:#2a3a50}
+  input[type=range]{width:100%;accent-color:#3366aa;display:block;cursor:pointer}
+  .btn-row{display:flex;gap:6px;flex-wrap:wrap}
+  button{padding:6px 12px;background:#101830;color:#88aadd;border:1px solid #1e3050;
+         border-radius:5px;cursor:pointer;font-size:11px;
+         font-family:'Courier New',Courier,monospace;letter-spacing:.5px;
+         transition:background .15s;white-space:nowrap}
+  button:hover{background:#1a2a50}
+  .date-grid{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap}
+  .date-manual{min-width:200px}
+  .date-manual p{font-size:10px;color:#4a6080;margin-bottom:6px;line-height:1.7}
+  .date-manual p strong{color:#7090b0}
+  .format-badge{display:inline-block;background:#0c1428;padding:1px 6px;border-radius:3px;
+                color:#88ccff;font-size:11px;border:1px solid #1e3050;font-family:monospace}
+  .eg{color:#556688}
+  #dateInput{width:120px;padding:7px 10px;border-radius:5px;border:1.5px solid #1e3050;
+             background:#060c1c;color:#aaddff;font-size:15px;
+             font-family:'Courier New',monospace;outline:none}
+  #dateInput.error{border-color:#cc3333}
+  #inputErr{font-size:10px;color:#ff6655;margin-left:8px;display:none}
+  #inputErr.show{display:inline}
+  .range-hint{font-size:9px;color:#2a3a50;margin-top:4px}
+  .nav-row{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:6px}
+  #dateDisplay{padding:5px 12px;text-align:center;min-width:116px;
+               background:#080c1e;border-radius:5px;border:1px solid #1a2a44}
+  #dateDisplay .big{font-size:16px;font-weight:bold;color:#88bbff;letter-spacing:1px}
+  #dateDisplay .jd{font-size:8px;color:#2a3a5a}
+  .timeline-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  #yearBig{font-size:14px;font-weight:bold;color:#5588cc;letter-spacing:1px}
+  .tl-labels{position:relative;height:16px;margin-bottom:2px}
+  .tl-labels span{position:absolute;transform:translateX(-50%);font-size:9px;color:#3355aa}
+  .tl-ticks{position:relative;height:18px;margin-bottom:4px}
+  .tick{position:absolute;transform:translateX(-50%);background:#151e38}
+  .tick.century{background:#253870}
+  #needle{position:absolute;transform:translateX(-50%);width:2px;height:24px;top:-4px;
+          background:#4488ff;box-shadow:0 0 10px #4488ff;border-radius:1px;
+          z-index:10;pointer-events:none}
+  #needleYear{position:absolute;transform:translateX(-50%);top:-18px;font-size:9px;
+              color:#4488ff;white-space:nowrap;text-shadow:0 0 8px #4488ff;
+              z-index:11;pointer-events:none}
+  #tlSlider{accent-color:#3366bb}
+  .tl-foot{display:flex;justify-content:space-between;font-size:9px;color:#1c2640;margin-top:3px}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 18px}
+  .legend-item{display:flex;align-items:center;gap:5px;font-size:10px;color:#8899aa}
+  .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .sun-dot{width:14px;height:14px;border-radius:50%;
+           background:radial-gradient(circle at 35% 35%,#fff,#ffcc00,#ff8800);flex-shrink:0}
+  .belt-bar{width:14px;height:4px;border-radius:2px;background:rgba(170,150,110,.5);flex-shrink:0}
+</style>
+</head>
+<body>
+
+<h1>Sonnensystem</h1>
+<div class="subtitle">INTERAKTIVES MODELL</div>
+
+<div class="canvas-wrap"><canvas id="cv" width="880" height="495"></canvas></div>
+
+<!-- REALISMUS -->
+<div class="panel" style="border-color:#1e3020">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div class="sec" style="margin-bottom:0;color:#5a9940">🌍 Realismus der Darstellung</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span id="realismLabel" style="font-size:11px;font-weight:bold;letter-spacing:1px;color:#4488cc">🔭 Realistisch</span>
+      <span id="realismVal"   style="font-size:13px;color:#88aacc;font-family:monospace;min-width:36px;text-align:right">100%</span>
+    </div>
+  </div>
+  <div style="height:5px;border-radius:3px;margin-bottom:5px;
+              background:linear-gradient(to right,#aa4411,#cc8822,#558844,#2255aa)"></div>
+  <input type="range" id="realismSlider" min="0" max="100" step="1" value="100"
+         style="width:100%;accent-color:#4477aa;margin-bottom:6px">
+  <div style="display:flex;justify-content:space-between;font-size:9px;color:#2a3a20;margin-bottom:8px">
+    <span>🎨 Lehrbuch-Diagramm<br><span style="color:#1a2010">große Planeten, klare Linien</span></span>
+    <span style="text-align:right">🔭 Realistisch<br><span style="color:#1a2010">log. Abstände, kleine Sonne</span></span>
+  </div>
+  <div class="btn-row">
+    <button onclick="setRealism(0)">🎨 Diagramm</button>
+    <button onclick="setRealism(0.25)">25 %</button>
+    <button onclick="setRealism(0.5)">⚖️ Halbwegs</button>
+    <button onclick="setRealism(0.75)">75 %</button>
+    <button onclick="setRealism(1)">🔭 Realistisch</button>
+  </div>
+  <div style="margin-top:8px;font-size:9px;color:#1e2e14;line-height:1.6;
+              border-top:1px solid #182810;padding-top:6px">
+    💡 Bei 0 %: klares Lehrbuch mit gut sichtbaren Planeten und Beschriftungen.<br>
+    Bei 100 %: die Sonne wird winzig – denn Merkur ist in Wirklichkeit 83 Sonnenradien entfernt!
+  </div>
+</div>
+
+<!-- BLICKWINKEL -->
+<div class="panel">
+  <div class="sec">🔭 Blickwinkel &amp; Zoom</div>
+  <div class="grid3">
+    <div>
+      <div class="slider-label">Neigung: <span id="elevVal">70</span>°
+        <span class="slider-hint"> (90°=oben ↔ 5°=Seite)</span></div>
+      <input type="range" id="elev" min="5" max="90" step="1" value="70">
+    </div>
+    <div>
+      <div class="slider-label">Drehung: <span id="azimVal">20</span>°</div>
+      <input type="range" id="azim" min="0" max="359" step="1" value="20">
+    </div>
+    <div>
+      <div class="slider-label">Zoom: <span id="zoomVal">1.00</span>×</div>
+      <input type="range" id="zoom" min="0.3" max="2.5" step="0.05" value="1">
+    </div>
+  </div>
+  <div class="btn-row">
+    <button onclick="setView(90,0)">Von oben (90°)</button>
+    <button onclick="setView(70,20)">Schräg (70°)</button>
+    <button onclick="setView(5,0)">Von der Seite (5°)</button>
+    <button onclick="state.zoom=1;updateUI()">Zoom zurücksetzen</button>
+  </div>
+</div>
+
+<!-- DATUM -->
+<div class="panel">
+  <div class="sec">📅 Datum einstellen</div>
+  <div class="date-grid">
+    <div class="date-manual">
+      <p>✏️ <strong>Datum von Hand eingeben</strong><br>
+         Format: <span class="format-badge">TT.MM.JJJJ</span>
+         &nbsp;(z.B. <span class="eg">20.07.1969</span>)</p>
+      <div style="display:flex;align-items:center">
+        <input type="text" id="dateInput" maxlength="10" placeholder="TT.MM.JJJJ" value="01.01.2000">
+        <span id="inputErr">⚠ ungültig</span>
+      </div>
+      <div class="range-hint">Bereich: 01.01.1600 – 31.12.2400</div>
+    </div>
+    <div>
+      <div class="slider-label" style="margin-bottom:6px">⏩ Springen</div>
+      <div class="nav-row">
+        <button onclick="jumpMonths(-12)">◀◀ −1 Jahr</button>
+        <button onclick="jumpMonths(-1)">◀ −1 Monat</button>
+        <div id="dateDisplay">
+          <div class="big" id="dateText">01.01.2000</div>
+          <div class="jd"  id="jdText">J2000: +0 Tage</div>
+        </div>
+        <button onclick="jumpMonths(1)">+1 Monat ▶</button>
+        <button onclick="jumpMonths(12)">+1 Jahr ▶▶</button>
+      </div>
+    </div>
+    <div>
+      <div class="slider-label" style="margin-bottom:6px">⚡ Schnellwahl</div>
+      <div class="btn-row">
+        <button onclick="applyDate(new Date())">Heute</button>
+        <button onclick="applyDate(new Date(2000,0,1))">1. Jan. 2000</button>
+        <button onclick="applyDate(new Date(1969,6,20))">Mondlandung</button>
+        <button onclick="applyDate(new Date(1600,0,1))">Jahr 1600</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ZEITSTRAHL -->
+<div class="panel">
+  <div class="timeline-header">
+    <div class="sec" style="margin-bottom:0">📏 Zeitstrahl &nbsp;1600 – 2400</div>
+    <div id="yearBig">2000</div>
+  </div>
+  <div class="tl-labels" id="tlLabels"></div>
+  <div class="tl-ticks"  id="tlTicks">
+    <div id="needleYear"></div>
+    <div id="needle"></div>
+  </div>
+  <input type="range" id="tlSlider" min="0" max="10000" step="1" value="0" style="width:100%">
+  <div class="tl-foot">
+    <span>1600</span><span>│ = 25 Jahre &ensp; ║ = 100 Jahre</span><span>2400</span>
+  </div>
+</div>
+
+<!-- LEGENDE -->
+<div class="panel" style="margin-bottom:0">
+  <div class="sec" style="margin-bottom:6px">Planeten</div>
+  <div class="legend" id="legend"></div>
+</div>
+
+<script>
+"use strict";
+
+// ── Farb-Hilfsfunktionen ─────────────────────────────────────────────────────
+function hexToRgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}
+function adj(h,a){const[r,g,b]=hexToRgb(h),c=v=>Math.min(255,Math.max(0,v+a));return`rgb(${c(r)},${c(g)},${c(b)})`}
+function rgba(h,a){const[r,g,b]=hexToRgb(h);return`rgba(${r},${g},${b},${a})`}
+
+// ── Planeten-Daten ───────────────────────────────────────────────────────────
+//  orbitR   = 100 % realistisch: logarithmische AU-Skala, Neptun ≈ 430 px
+//  orbitR_s = 0 % schematisch:   gleichmäßig, weite Abstände für große Planeten
+//  rPx_s    = Planetengröße im Diagramm-Modus (px, Zoom×1) — bewusst groß
+//  rKm      = echter Radius für 100 % Realismus (ergibt winzige ~2.5 px)
+const PLANETS=[
+  {name:"Merkur", color:"#b8b8b8",rKm:2440,  rPx_s:7,  orbitR:45,  orbitR_s:52,  period:87.969,   L0:252.25,inc:7.005,Omega:48.33},
+  {name:"Venus",  color:"#f5c842",rKm:6052,  rPx_s:10, orbitR:100, orbitR_s:90,  period:224.701,  L0:181.98,inc:3.395,Omega:76.68},
+  {name:"Erde",   color:"#4a9eff",rKm:6371,  rPx_s:11, orbitR:129, orbitR_s:128, period:365.256,  L0:100.47,inc:0.000,Omega:0.00 },
+  {name:"Mars",   color:"#e05020",rKm:3390,  rPx_s:8,  orbitR:166, orbitR_s:166, period:686.971,  L0:355.45,inc:1.850,Omega:49.56},
+  {name:"Jupiter",color:"#d4893a",rKm:71492, rPx_s:20, orbitR:275, orbitR_s:210, period:4332.59,  L0:34.40, inc:1.303,Omega:100.46},
+  {name:"Saturn", color:"#e8d878",rKm:60268, rPx_s:17, orbitR:328, orbitR_s:254, period:10759.22, L0:49.94, inc:2.489,Omega:113.67},
+  {name:"Uranus", color:"#7ee8ea",rKm:25559, rPx_s:13, orbitR:390, orbitR_s:298, period:30688.5,  L0:313.23,inc:0.773,Omega:74.01},
+  {name:"Neptun", color:"#4a60dd",rKm:24764, rPx_s:13, orbitR:430, orbitR_s:342, period:60182.0,  L0:304.88,inc:1.770,Omega:131.78},
+];
+
+// Sonne: 5 px bei 100 % Realismus → 22 px bei 0 % (im Diagramm größer sichtbar)
+const SUN_R_REAL=5, SUN_R_DIAG=22;
+const KM_PX=SUN_R_REAL/696000;  // Planetengrößen-Skala bei 100 %
+
+const TL_MAX=10000;
+const T0=new Date(1600,0,1),T1=new Date(2400,11,31),TS=T1-T0;
+
+// ── Zustand ──────────────────────────────────────────────────────────────────
+let state={date:new Date(2000,0,1),elev:70,azim:20,zoom:1.0,realism:1.0};
+
+// ── Orbital-Mechanik ─────────────────────────────────────────────────────────
+const DEG=Math.PI/180,J2000=new Date(Date.UTC(2000,0,1,12));
+const d2r=deg=>deg*DEG;
+const dateToJD=d=>(d-J2000)/86400000;
+
+function effectR(pl){return pl.orbitR_s+(pl.orbitR-pl.orbitR_s)*state.realism;}
+
+// Planetengröße: Diagramm=groß & klar, Realismus=astronomisch korrekt (winzig)
+function effectPlanetR(pl,sc){
+  const rReal  =Math.max(1.8,pl.rKm*KM_PX*sc);
+  const rSchema=Math.max(1.8,pl.rPx_s*sc);
+  return rSchema+(rReal-rSchema)*state.realism;
+}
+
+// Sonnengröße: groß im Diagramm, winzig bei Realismus
+function effectSunR(sc){
+  return(SUN_R_DIAG+(SUN_R_REAL-SUN_R_DIAG)*state.realism)*sc;
+}
+
+function orbitPoint(pl,deg,sc){
+  const th=d2r(deg),i=d2r(pl.inc),Om=d2r(pl.Omega),r=effectR(pl)*sc;
+  return{
+    x:r*(Math.cos(th)*Math.cos(Om)-Math.sin(th)*Math.cos(i)*Math.sin(Om)),
+    y:r*(Math.cos(th)*Math.sin(Om)+Math.sin(th)*Math.cos(i)*Math.cos(Om)),
+    z:r*Math.sin(th)*Math.sin(i)
+  };
+}
+function orbitPts(pl,sc,n=180){
+  return Array.from({length:n+1},(_,k)=>orbitPoint(pl,(k/n)*360,sc));
+}
+function pos3D(pl,days,sc){
+  return orbitPoint(pl,pl.L0+(360/pl.period)*days,sc);
+}
+function proj(x,y,z,el,az){
+  const e=d2r(el),a=d2r(az);
+  const xr=x*Math.cos(a)+y*Math.sin(a);
+  const yr=-x*Math.sin(a)+y*Math.cos(a);
+  return{sx:xr,sy:-(yr*Math.sin(e)-z*Math.cos(e)),depth:yr*Math.cos(e)+z*Math.sin(e)};
+}
+
+// ── Datums-Hilfsfunktionen ───────────────────────────────────────────────────
+function fmtD(d){
+  return String(d.getDate()).padStart(2,"0")+"."+
+         String(d.getMonth()+1).padStart(2,"0")+"."+
+         String(d.getFullYear()).padStart(4,"0");
+}
+function parseD(s){
+  const p=s.split(".");if(p.length!==3)return null;
+  const[dd,mm,yy]=p.map(Number);
+  if([dd,mm,yy].some(isNaN))return null;
+  if(yy<1600||yy>2400||mm<1||mm>12||dd<1||dd>31)return null;
+  const d=new Date(yy,mm-1,dd);return isNaN(d.getTime())?null:d;
+}
+function clamp(d){return d<T0?new Date(T0):d>T1?new Date(T1):d;}
+function addM(d,n){return clamp(new Date(d.getFullYear(),d.getMonth()+n,d.getDate()));}
+function d2sl(d){return Math.max(0,Math.min(TL_MAX,((d-T0)/TS)*TL_MAX));}
+function sl2d(v){return new Date(T0.getTime()+(v/TL_MAX)*TS);}
+
+// ── Statische Zufallsdaten ───────────────────────────────────────────────────
+const STARS=Array.from({length:300},()=>({x:Math.random(),y:Math.random(),r:Math.random()*1.4+.2,a:Math.random()*.5+.15}));
+const BELT=Array.from({length:600},()=>({t:.22+Math.random()*.56,th:Math.random()*Math.PI*2,noiseR:(Math.random()-.5)*10,z:(Math.random()-.5)*4}));
+
+// ── ZEICHNEN ─────────────────────────────────────────────────────────────────
+const canvas=document.getElementById("cv");
+const ctx=canvas.getContext("2d");
+
+function drawArrow(x1,y1,x2,y2,color,alpha,sz){
+  const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);if(len<.1)return;
+  const nx=dx/len,ny=dy/len,px=-ny,py=nx;
+  ctx.beginPath();
+  ctx.moveTo(x2+nx*sz,y2+ny*sz);
+  ctx.lineTo(x2-nx*sz*.6+px*sz*.7,y2-ny*sz*.6+py*sz*.7);
+  ctx.lineTo(x2-nx*sz*.6-px*sz*.7,y2-ny*sz*.6-py*sz*.7);
+  ctx.closePath();
+  ctx.fillStyle=rgba(color,alpha);ctx.fill();
+}
+
+function draw(){
+  const{date,elev,azim,zoom:sc,realism:rl}=state;
+  const W=canvas.width,H=canvas.height,cx=W/2,cy=H/2;
+  const sa=1-rl; // schematic strength
+
+  // ── Hintergrund ──
+  ctx.fillStyle=`rgb(4,4,${14+Math.round(sa*16)})`;ctx.fillRect(0,0,W,H);
+  const vig=ctx.createRadialGradient(cx,cy,H*.3,cx,cy,H*.9);
+  vig.addColorStop(0,"rgba(0,0,0,0)");vig.addColorStop(1,`rgba(0,0,20,.65)`);
+  ctx.fillStyle=vig;ctx.fillRect(0,0,W,H);
+
+  // ── Sterne (bei Diagramm fast weg) ──
+  STARS.forEach(s=>{
+    ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(200,220,255,${s.a*(1-sa*.96)})`;ctx.fill();
+  });
+
+  // ── Ekliptik-Referenzebene (Diagramm-Modus) ──
+  if(sa>.05){
+    const da=sa*.07,outerR=effectR(PLANETS[7])*sc*1.06;
+    ctx.beginPath();
+    for(let k=0;k<=100;k++){const t=(k/100)*Math.PI*2;const{sx,sy}=proj(outerR*Math.cos(t),outerR*Math.sin(t),0,elev,azim);k?ctx.lineTo(cx+sx,cy+sy):ctx.moveTo(cx+sx,cy+sy);}
+    ctx.closePath();
+    ctx.fillStyle=`rgba(80,110,200,${da})`;ctx.fill();
+    ctx.strokeStyle=`rgba(100,150,255,${da*2.5})`;ctx.lineWidth=.6;ctx.stroke();
+  }
+
+  const days=dateToJD(date);
+
+  // ── Umlaufbahnen ──
+  const oA=.18+sa*.72, oW=1+sa*1.8;
+  PLANETS.forEach(pl=>{
+    const pts=orbitPts(pl,sc).map(p=>{const{sx,sy}=proj(p.x,p.y,p.z,elev,azim);return[cx+sx,cy+sy];});
+    const[r,g,b]=hexToRgb(pl.color);
+    ctx.beginPath();pts.forEach(([x,y],j)=>j?ctx.lineTo(x,y):ctx.moveTo(x,y));
+    ctx.closePath();ctx.strokeStyle=`rgba(${r},${g},${b},${oA})`;ctx.lineWidth=oW;ctx.stroke();
+  });
+
+  // ── Richtungspfeile (Diagramm) ──
+  if(sa>.05){
+    const aA=Math.min(1,sa*2),aSz=Math.max(4,6*Math.max(.65,sc));
+    PLANETS.forEach(pl=>{
+      const p1=orbitPoint(pl,55,sc),p2=orbitPoint(pl,65,sc);
+      const{sx:s1x,sy:s1y}=proj(p1.x,p1.y,p1.z,elev,azim);
+      const{sx:s2x,sy:s2y}=proj(p2.x,p2.y,p2.z,elev,azim);
+      drawArrow(cx+s1x,cy+s1y,cx+s2x,cy+s2y,pl.color,aA*.85,aSz);
+    });
+  }
+
+  // ── Feste Orbit-Beschriftungen (Diagramm) ──
+  if(sa>.05){
+    const lA=Math.min(1,sa*2),lFs=Math.max(9,Math.round(10.5*Math.max(.7,sc)));
+    PLANETS.forEach((pl,idx)=>{
+      const p=orbitPoint(pl,300,sc);
+      const{sx,sy}=proj(p.x,p.y,p.z,elev,azim);
+      const lx=cx+sx+6,ly=cy+sy;
+      ctx.beginPath();ctx.moveTo(cx+sx,cy+sy);ctx.lineTo(lx,ly);
+      ctx.strokeStyle=rgba(pl.color,lA*.4);ctx.lineWidth=.8;ctx.stroke();
+      ctx.font=`bold ${lFs}px 'Courier New'`;
+      const txt=`${idx+1} ${pl.name}`,tw=ctx.measureText(txt).width;
+      ctx.fillStyle=`rgba(4,6,20,${lA*.7})`;ctx.fillRect(lx-2,ly-lFs,tw+4,lFs+3);
+      ctx.fillStyle=rgba(pl.color,lA*.95);ctx.fillText(txt,lx,ly);
+    });
+  }
+
+  // ── Asteroidengürtel ──
+  const marsR=effectR(PLANETS[3]),jupR=effectR(PLANETS[4]);
+  BELT.forEach(b=>{
+    const br=marsR+b.t*(jupR-marsR)+b.noiseR;
+    const{sx,sy}=proj(br*Math.cos(b.th)*sc,br*Math.sin(b.th)*sc,b.z*sc,elev,azim);
+    ctx.beginPath();ctx.arc(cx+sx,cy+sy,.8,0,Math.PI*2);
+    ctx.fillStyle=`rgba(170,150,120,${.12+sa*.22})`;ctx.fill();
+  });
+
+  // ── Sonne ──
+  const sR=effectSunR(sc);
+
+  // Leuchthof (immer, aber größer im Diagramm)
+  const glowR=sR*(rl>.5?4:6-sa*3);
+  const glow=ctx.createRadialGradient(cx,cy,0,cx,cy,glowR);
+  glow.addColorStop(0,"rgba(255,240,160,.9)");glow.addColorStop(.15,"rgba(255,200,80,.55)");
+  glow.addColorStop(.4,"rgba(255,140,30,.2)");glow.addColorStop(.7,"rgba(255,80,10,.07)");
+  glow.addColorStop(1,"rgba(255,40,0,0)");
+  ctx.beginPath();ctx.arc(cx,cy,glowR,0,Math.PI*2);ctx.fillStyle=glow;ctx.fill();
+
+  // Sonnenscheibe
+  const sunG=ctx.createRadialGradient(cx-sR*.25,cy-sR*.25,0,cx,cy,sR);
+  sunG.addColorStop(0,"#ffffff");sunG.addColorStop(.25,"#ffffd0");
+  sunG.addColorStop(.6,"#ffcc00");sunG.addColorStop(1,"#ff8800");
+  ctx.beginPath();ctx.arc(cx,cy,Math.max(.8,sR),0,Math.PI*2);ctx.fillStyle=sunG;ctx.fill();
+
+  // Sonnen-Label (nur im Diagramm sichtbar, bei 100% zu klein)
+  if(sR>4){
+    ctx.font=`bold ${Math.max(9,10*Math.max(.7,sc))}px 'Courier New'`;
+    ctx.fillStyle="rgba(255,210,80,.9)";
+    ctx.fillText("Sonne",cx+sR+4,cy+4);
+  }
+
+  // ── Planeten ──
+  const items=PLANETS.map(pl=>{
+    const p=pos3D(pl,days,sc);
+    const pr=proj(p.x,p.y,p.z,elev,azim);
+    return{pl,...pr,r:effectPlanetR(pl,sc),px:cx+pr.sx,py:cy+pr.sy};
+  }).sort((a,b)=>b.depth-a.depth);
+
+  items.forEach(({pl,px,py,r})=>{
+    const isSat=pl.name==="Saturn";
+    const rD=r;
+    const ringA=isSat?rD*2.6:0;
+    const ringB=isSat?ringA*Math.max(.1,Math.abs(Math.sin(d2r(elev))))*.42:0;
+
+    // Saturn-Ring hinten
+    if(isSat){
+      ctx.save();ctx.translate(px,py);
+      ctx.beginPath();ctx.ellipse(0,0,ringA,Math.max(2,ringB),0,Math.PI,Math.PI*2);
+      ctx.strokeStyle="rgba(205,185,120,.72)";ctx.lineWidth=rD*.9;ctx.stroke();
+      ctx.restore();
+    }
+
+    // Diagramm-Stil: satter flacher Kreis
+    if(sa>.01){
+      ctx.beginPath();ctx.arc(px,py,rD,0,Math.PI*2);
+      ctx.fillStyle=rgba(pl.color,1);ctx.fill();
+      ctx.strokeStyle=adj(pl.color,80);
+      ctx.lineWidth=Math.max(.5,1.8*sc*sa);ctx.stroke();
+    }
+    // Realistisch-Stil: 3D-Gradient (überlagert)
+    if(rl>.01){
+      const pg=ctx.createRadialGradient(px-rD*.3,py-rD*.3,0,px,py,rD);
+      pg.addColorStop(0,adj(pl.color,65));pg.addColorStop(1,adj(pl.color,-55));
+      ctx.beginPath();ctx.arc(px,py,rD,0,Math.PI*2);
+      ctx.globalAlpha=rl;ctx.fillStyle=pg;ctx.fill();ctx.globalAlpha=1;
+    }
+
+    // Atmosphären-Glow (Gasriesen und Diagramm)
+    if(rD>3){
+      const[rr,gg,bb]=hexToRgb(pl.color);
+      const glowMult=sa>.3?1.8:1;
+      const ag=ctx.createRadialGradient(px,py,rD*.85,px,py,rD*glowMult*1.6);
+      ag.addColorStop(0,`rgba(${rr},${gg},${bb},.22)`);ag.addColorStop(1,`rgba(${rr},${gg},${bb},0)`);
+      ctx.beginPath();ctx.arc(px,py,rD*glowMult*1.6,0,Math.PI*2);ctx.fillStyle=ag;ctx.fill();
+    }
+
+    // Saturn-Ring vorne
+    if(isSat){
+      ctx.save();ctx.translate(px,py);
+      ctx.beginPath();ctx.ellipse(0,0,ringA,Math.max(2,ringB),0,0,Math.PI);
+      ctx.strokeStyle="rgba(205,185,120,.72)";ctx.lineWidth=rD*.9;ctx.stroke();
+      ctx.restore();
+    }
+
+    // Weißer Kern-Highlight (Diagramm)
+    if(sa>.1){
+      ctx.beginPath();ctx.arc(px,py,Math.max(1.5,rD*.22),0,Math.PI*2);
+      ctx.fillStyle=`rgba(255,255,255,${sa*.65})`;ctx.fill();
+    }
+
+    // Name (realistischer Modus)
+    if(rl>.05){
+      const fs=Math.max(9,10*Math.max(.65,sc));
+      ctx.font=`${fs}px 'Courier New'`;
+      ctx.fillStyle=`rgba(200,220,255,${rl*.88})`;
+      ctx.fillText(pl.name,px+rD+3,py+4);
+    }
+  });
+
+  // ── Diagramm-Titel ──
+  if(sa>.05){
+    const tA=Math.min(1,sa*2);
+    ctx.font=`bold ${Math.round(11*sc)}px 'Courier New'`;
+    ctx.fillStyle=`rgba(140,180,255,${tA*.6})`;
+    ctx.fillText("SCHEMATISCHE DARSTELLUNG",10,20);
+    ctx.font=`${Math.round(9*sc)}px 'Courier New'`;
+    ctx.fillStyle=`rgba(80,110,200,${tA*.5})`;
+    ctx.fillText("Bahnneigungen original  ·  Größen & Abstände vereinfacht",10,33);
+  }
+
+  // ── Fußnote ──
+  ctx.font="9px 'Courier New'";ctx.fillStyle="rgba(60,80,120,.8)";
+  const note=rl>=.99
+    ?"* Abstände: logarithmische AU-Skala  |  Sonne ~5 px (real wäre sie 0,07 px)  |  Größen: proportional"
+    :rl<=.01
+    ?"* Diagramm-Modus: Abstände gleichmäßig  |  Bahnneigungen original  |  Pfeile = Umlaufrichtung"
+    :`* Mischdarstellung: ${Math.round(rl*100)} % realistisch`;
+  ctx.fillText(note,8,H-8);
+}
+
+// ── UI aktualisieren ─────────────────────────────────────────────────────────
+function updateUI(){
+  const{date,elev,azim,zoom,realism}=state;
+  const jd=Math.round(dateToJD(date)),yr=date.getFullYear();
+  const fmt=fmtD(date),sl=d2sl(date),rlP=Math.round(realism*100);
+  const nPct=(sl/TL_MAX)*100;
+
+  let lbl,col;
+  if(rlP>=90){lbl="🔭 Realistisch";col="#4488cc";}
+  else if(rlP>=60){lbl="⚖️ Halbwegs";col="#55aa77";}
+  else if(rlP>=30){lbl="📐 Schematisch";col="#bb8833";}
+  else{lbl="🎨 Lehrbuch-Diagramm";col="#cc5522";}
+
+  document.getElementById("realismLabel").textContent=lbl;
+  document.getElementById("realismLabel").style.color=col;
+  document.getElementById("realismVal").textContent=rlP+"%";
+  document.getElementById("realismSlider").value=rlP;
+  document.getElementById("dateText").textContent=fmt;
+  document.getElementById("jdText").textContent=`J2000: ${jd>=0?"+":""}${jd} Tage`;
+  document.getElementById("dateInput").value=fmt;
+  document.getElementById("yearBig").textContent=yr;
+  document.getElementById("elevVal").textContent=elev;
+  document.getElementById("azimVal").textContent=azim;
+  document.getElementById("zoomVal").textContent=zoom.toFixed(2);
+  document.getElementById("elev").value=elev;
+  document.getElementById("azim").value=azim;
+  document.getElementById("zoom").value=zoom;
+  document.getElementById("tlSlider").value=sl;
+  document.getElementById("needle").style.left=nPct+"%";
+  document.getElementById("needleYear").style.left=nPct+"%";
+  document.getElementById("needleYear").textContent=yr;
+  document.getElementById("dateInput").classList.remove("error");
+  document.getElementById("inputErr").classList.remove("show");
+  draw();
+}
+
+// ── Aktionen ─────────────────────────────────────────────────────────────────
+function applyDate(d){state.date=clamp(d);updateUI();}
+function jumpMonths(n){applyDate(addM(state.date,n));}
+function setView(el,az){state.elev=el;state.azim=az;updateUI();}
+function setRealism(v){state.realism=v;updateUI();}
+
+// ── Events ───────────────────────────────────────────────────────────────────
+document.getElementById("elev").addEventListener("input",()=>{state.elev=+document.getElementById("elev").value;updateUI();});
+document.getElementById("azim").addEventListener("input",()=>{state.azim=+document.getElementById("azim").value;updateUI();});
+document.getElementById("zoom").addEventListener("input",()=>{state.zoom=+document.getElementById("zoom").value;updateUI();});
+document.getElementById("realismSlider").addEventListener("input",()=>{state.realism=+document.getElementById("realismSlider").value/100;updateUI();});
+document.getElementById("tlSlider").addEventListener("input",()=>{state.date=sl2d(+document.getElementById("tlSlider").value);updateUI();});
+document.getElementById("dateInput").addEventListener("input",function(){
+  if(this.value.length===10){
+    const d=parseD(this.value);
+    if(d){this.classList.remove("error");document.getElementById("inputErr").classList.remove("show");state.date=d;updateUI();}
+    else{this.classList.add("error");document.getElementById("inputErr").classList.add("show");}
+  }else{this.classList.remove("error");document.getElementById("inputErr").classList.remove("show");}
+});
+
+// ── Zeitstrahl aufbauen ──────────────────────────────────────────────────────
+(function(){
+  const lE=document.getElementById("tlLabels"),tE=document.getElementById("tlTicks");
+  [1600,1700,1800,1900,2000,2100,2200,2300,2400].forEach(y=>{
+    const s=document.createElement("span");s.textContent=y;s.style.left=((y-1600)/800*100)+"%";lE.appendChild(s);
+  });
+  for(let y=1600;y<=2400;y+=25){
+    const isC=y%100===0,el=document.createElement("div");
+    el.className="tick"+(isC?" century":"");
+    el.style.left=((y-1600)/800*100)+"%";
+    el.style.width=isC?"2px":"1px";el.style.height=isC?"16px":"9px";el.style.top=isC?"2px":"7px";
+    tE.appendChild(el);
+  }
+})();
+
+// ── Legende aufbauen ─────────────────────────────────────────────────────────
+(function(){
+  const leg=document.getElementById("legend");
+  const si=document.createElement("div");si.className="legend-item";
+  si.innerHTML='<div class="sun-dot"></div><span style="color:#c8d8f0">Sonne</span>';leg.appendChild(si);
+  PLANETS.forEach(pl=>{
+    const el=document.createElement("div");el.className="legend-item";
+    el.innerHTML=`<div class="dot" style="background:${pl.color}"></div><span>${pl.name}</span>`;leg.appendChild(el);
+  });
+  const bi=document.createElement("div");bi.className="legend-item";
+  bi.innerHTML='<div class="belt-bar"></div><span style="color:#665544">Asteroidengürtel</span>';leg.appendChild(bi);
+})();
+
+updateUI();
+</script>
+</body>
+</html>
